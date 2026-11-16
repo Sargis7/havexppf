@@ -1,0 +1,43 @@
+name: Deploy demo to GitHub Pages
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: pages
+  cancel-in-progress: true
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/configure-pages@v5
+
+      # Публикуем только статическую демо-версию: без server.js, .env и админки
+      - name: Assemble static demo
+        run: |
+          mkdir -p _site/data _site/assets
+          cp demo.html index.html _site/
+          cp styles.css app.js favicon.svg _site/
+          cp data/catalog.js _site/data/
+          cp assets/* _site/assets/
+          touch _site/.nojekyll
+
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: _site
+
+      - id: deployment
+        uses: actions/deploy-pages@v4

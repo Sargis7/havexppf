@@ -314,8 +314,17 @@ function initForm() {
 
     const payload = Object.fromEntries(new FormData(form).entries());
 
+    // Локальный сервер: свой же origin. Демо на статике: window.HAVEX_API не задан
+    if (!window.HAVEX_API) {
+      form.reset();
+      showStatus('ok', 'Это демо-версия сайта. Форма заработает после подключения сервера и Telegram — напишите нам напрямую в Telegram.');
+      submit.classList.remove('loading');
+      submit.disabled = false;
+      return;
+    }
+
     try {
-      const res = await fetch('/api/lead', {
+      const res = await fetch(window.HAVEX_API, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(payload),

@@ -62,13 +62,60 @@ Email: ivan@test.ru
 Форма с сайта Havex · 07.11.2026, 20:25 МСК · IP ::1
 ```
 
+## Демо на GitHub Pages (временная ссылка)
+
+Если нужна публичная ссылка для показа клиенту, сайт можно опубликовать на
+GitHub Pages. Важно: Pages отдаёт **только статику**, поэтому опубликованный
+сайт — это демо без приёма заявок (нет Node, нет `.env`, нет `/api/lead`).
+Форма на демо показывает сообщение «это демо-версия», а не ломается.
+
+### Как включить (один раз)
+
+1. Откройте https://github.com/Sargis7/havexppf/settings/pages
+2. **Source** → выберите **GitHub Actions** (не «Deploy from a branch»)
+3. Сделайте любой коммит в `main` — или запустите workflow вручную:
+   **Actions** → *Deploy demo to GitHub Pages* → **Run workflow**
+
+Через 1–2 минуты сайт появится по адресу:
+
+```
+https://sargis7.github.io/havexppf/
+```
+
+### Что именно публикуется
+
+Workflow `.github/workflows/pages.yml` собирает отдельную папку `_site` и
+кладёт туда только статические файлы — `server.js`, `.env`, `_admin/` и
+`node_modules` в публикацию не попадают:
+
+```
+_site/
+├── index.html     ← редирект на demo.html
+├── demo.html      ← сам сайт + плашка «ДЕМО»
+├── styles.css, app.js, favicon.svg
+├── data/catalog.js
+└── assets/*       ← картинки
+```
+
+`demo.html` — копия лендинга с относительными путями и без
+`window.HAVEX_API`, поэтому форма знает, что бэкенда нет. Если поменяете
+`public/index.html`, не забудьте обновить `demo.html` (или просто скопируйте
+его поверх и верните плашку).
+
+### Как отключить
+
+**Settings → Pages → Unpublish site** — ссылка перестанет открываться.
+Альтернатива без включения Pages: временный туннель к локальному серверу,
+например `npx localtunnel --port 3000` или `ngrok http 3000` — тогда работает
+и форма с Telegram, пока ваш компьютер включён.
+
 ## Структура
 
 ```
 havex-site/
 ├── server.js          Express: статика + /api/lead → Telegram Bot API
 ├── .env.example       шаблон настроек (скопировать в .env)
-├── public/
+├── public/            рабочий сайт (отдаётся сервером)
 │   ├── index.html     разметка лендинга
 │   ├── styles.css     палитра бренда, анимации, адаптив
 │   ├── app.js         рендер каталога из window.HAVEX_DATA + отправка формы
@@ -76,12 +123,16 @@ havex-site/
 │   ├── data/
 │   │   └── catalog.js ЕДИНЫЙ источник: товары, галерея, видео, настройки
 │   └── assets/        фото коробки и сгенерированные визуалы
-└── _admin/            админ-панель (отдаётся по /adminpanel/, вне public/)
-    ├── index.html     три экрана: пароль → подключение → панель
-    ├── admin.js       логика панели и запись в GitHub через Contents API
-    ├── favicon.svg
-    ├── redirect.html  трамплин для /admin, /adminpanel.html
-    └── robots.txt     Disallow: /
+├── _admin/            админ-панель (отдаётся по /adminpanel/, вне public/)
+│   ├── index.html     три экрана: пароль → подключение → панель
+│   ├── admin.js       логика панели и запись в GitHub через Contents API
+│   ├── favicon.svg
+│   ├── redirect.html  трамплин для /admin, /adminpanel.html
+│   └── robots.txt     Disallow: /
+├── demo.html          статическая копия для GitHub Pages (без бэкенда)
+├── index.html         редирект на demo.html (для Pages)
+├── app.js, styles.css, data/, assets/   копии для Pages
+└── .github/workflows/pages.yml          публикация демо
 ```
 
 ## Админ-панель
