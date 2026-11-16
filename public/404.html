@@ -1,0 +1,71 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>HAVEX — Страница не найдена</title>
+<meta name="robots" content="noindex, follow">
+<meta name="theme-color" content="#0A0A0A">
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><rect width='100' height='100' fill='%230A0A0A'/><text y='74' x='50' font-size='72' font-family='Arial' font-weight='bold' font-style='italic' fill='%238CD117' text-anchor='middle'>X</text></svg>">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=Saira:ital,wght@0,700;0,900;1,900&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="/styles.css">
+<style>
+  .nf {
+    min-height: 100svh;
+    display: flex; align-items: center; justify-content: center;
+    padding: 96px 24px;
+    background: radial-gradient(circle at 50% 0%, rgba(140,209,23,.07), transparent 60%), var(--black);
+  }
+  .nf__inner { max-width: 620px; text-align: center; }
+  .nf__code {
+    font-family: var(--font-display);
+    font-size: clamp(96px, 22vw, 190px);
+    font-weight: 900; font-style: italic;
+    line-height: .82; letter-spacing: -.04em;
+    color: transparent;
+    -webkit-text-stroke: 1.5px var(--lime);
+    display: block; margin-bottom: 8px;
+  }
+  .nf__title {
+    font-family: var(--font-display);
+    font-size: clamp(22px, 4vw, 34px); font-weight: 800;
+    text-transform: uppercase; letter-spacing: -.01em;
+    color: var(--white); margin: 0 0 16px;
+  }
+  .nf__text {
+    color: var(--gray); font-size: 15px; line-height: 1.65;
+    margin: 0 0 32px;
+  }
+  .nf__actions { display: flex; gap: 12px; justify-content: center; flex-wrap: wrap; }
+  .nf__btn {
+    display: inline-flex; align-items: center; gap: 10px;
+    padding: 14px 28px; border-radius: var(--r);
+    font-size: 13px; font-weight: 600; letter-spacing: .08em;
+    text-transform: uppercase; text-decoration: none;
+    transition: background .3s var(--ease), color .3s var(--ease), border-color .3s var(--ease);
+  }
+  .nf__btn--primary { background: var(--lime); color: var(--black); }
+  .nf__btn--primary:hover { background: var(--white); }
+  .nf__btn--ghost { border: 1px solid var(--line-2); color: var(--white); }
+  .nf__btn--ghost:hover { border-color: var(--lime); color: var(--lime); }
+</style>
+</head>
+<body>
+<main class="nf">
+  <div class="nf__inner">
+    <span class="nf__code">404</span>
+    <h1 class="nf__title">Такой страницы нет</h1>
+    <p class="nf__text">
+      Возможно, адрес изменился или в ссылке опечатка.
+      Вернитесь на главную — там весь каталог плёнки HAVEX.
+    </p>
+    <div class="nf__actions">
+      <a class="nf__btn nf__btn--primary" href="/">На главную</a>
+      <a class="nf__btn nf__btn--ghost" href="/#catalog">Каталог плёнки</a>
+    </div>
+  </div>
+</main>
+</body>
+</html>
