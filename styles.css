@@ -357,7 +357,7 @@ em { font-style: italic; color: var(--lime); }
 /* ============================================================
    FEATURES
    ============================================================ */
-.features { display: grid; grid-template-columns: repeat(auto-fit, minmax(272px, 1fr)); gap: 1px; background: var(--line); border: 1px solid var(--line); }
+.features { display: grid; grid-template-columns: repeat(4, 1fr); gap: 1px; background: var(--line); border: 1px solid var(--line); }
 .feature { background: var(--black); padding: 34px 30px 38px; transition: background .4s var(--ease); }
 .feature:hover { background: var(--black-2); }
 .feature__ico { color: var(--lime); font-size: 13px; margin-bottom: 16px; }
@@ -533,6 +533,7 @@ em { font-style: italic; color: var(--lime); }
   .split__badge { right: 18px; }
   .contact { grid-template-columns: 1fr; }
   .footer__top { grid-template-columns: 1fr 1fr; gap: 34px; }
+  .features { grid-template-columns: repeat(2, 1fr); }
 }
 
 @media (max-width: 860px) {
@@ -597,3 +598,36 @@ em { font-style: italic; color: var(--lime); }
   transition: transform .6s var(--ease);
 }
 .card:hover .card__photo { transform: scale(1.07); }
+
+/* ============================================================
+   SALES STRIP — «продаём материал, а не услугу»
+   ============================================================ */
+.sales {
+  position: relative; z-index: 2;
+  border-top: 1px solid var(--line); border-bottom: 1px solid var(--line);
+  background: var(--black-2);
+}
+.sales__inner {
+  display: flex; align-items: center; gap: clamp(24px, 5vw, 64px);
+  padding: 26px 0; flex-wrap: wrap;
+}
+.sales__label {
+  font-size: 11.5px; letter-spacing: .18em; text-transform: uppercase;
+  color: var(--lime); font-weight: 700; line-height: 1.4; flex: 0 0 auto;
+  padding-right: clamp(16px, 3vw, 42px); border-right: 1px solid var(--line);
+}
+.sales__list {
+  display: grid; grid-template-columns: repeat(4, 1fr); gap: clamp(16px, 3vw, 40px);
+  list-style: none; margin: 0; padding: 0; flex: 1 1 420px;
+}
+.sales__list li { display: flex; flex-direction: column; gap: 3px; }
+.sales__list strong { font-size: 15px; font-weight: 700; color: var(--white); }
+.sales__list span { font-size: 12.5px; color: var(--gray); line-height: 1.4; }
+
+@media (max-width: 860px) {
+  .sales__label { border-right: 0; padding-right: 0; }
+  .sales__list { grid-template-columns: 1fr 1fr; gap: 18px 26px; }
+}
+@media (max-width: 520px) {
+  .sales__list { grid-template-columns: 1fr; }
+}

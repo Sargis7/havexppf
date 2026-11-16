@@ -65,7 +65,7 @@ function cardMarkup(p) {
         <dl class="card__specs">${specs}</dl>
         <div class="card__foot">
           <div class="card__price">${esc(money(p.price))}<small>${esc(p.unit)}</small></div>
-          <button type="button" class="card__btn" data-order>Заказать</button>
+          <button type="button" class="card__btn" data-order>Купить</button>
         </div>
       </div>
     </article>`;
