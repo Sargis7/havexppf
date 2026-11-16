@@ -14,6 +14,8 @@ const CHAT_ID = process.env.TELEGRAM_CHAT_ID || '';
 
 app.disable('x-powered-by');
 app.set('trust proxy', 1);
+// /adminpanel и /adminpanel/ — разные маршруты, иначе редирект зацикливается
+app.enable('strict routing');
 app.use(express.json({ limit: '32kb' }));
 app.use(express.urlencoded({ extended: false, limit: '32kb' }));
 
@@ -172,6 +174,37 @@ app.get('/api/health', (_req, res) => {
 });
 
 const PUBLIC_DIR = path.join(__dirname, 'public');
+
+/* ------------------------------------------------------------------ */
+/*  Админ-панель (вне public/, не индексируется)                      */
+/* ------------------------------------------------------------------ */
+
+const ADMIN_DIR = path.join(__dirname, '_admin');
+
+app.use('/adminpanel', (_req, res, next) => {
+  res.setHeader('X-Robots-Tag', 'noindex, nofollow, noarchive');
+  next();
+});
+
+app.get('/adminpanel', (_req, res) => res.redirect(301, '/adminpanel/'));
+app.get('/adminpanel/', (_req, res) => res.sendFile(path.join(ADMIN_DIR, 'index.html')));
+
+// Файлы панели: только имя без слэшей, чтобы исключить traversal
+app.get('/adminpanel/:file', (req, res, next) => {
+  const file = req.params.file;
+  if (!file || !/^[a-zA-Z0-9._-]+$/.test(file)) return next();
+  res.sendFile(path.join(ADMIN_DIR, file), (err) => {
+    if (err) next();
+  });
+});
+
+// Ловушки для типовых адресов панели
+['/adminpanel.html', '/admin', '/admin/'].forEach((trap) => {
+  app.get(trap, (_req, res) => {
+    res.setHeader('X-Robots-Tag', 'noindex, nofollow, noarchive');
+    res.sendFile(path.join(ADMIN_DIR, 'redirect.html'));
+  });
+});
 
 app.use(
   express.static(PUBLIC_DIR, {

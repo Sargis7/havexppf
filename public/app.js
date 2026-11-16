@@ -1,96 +1,35 @@
 'use strict';
 
 /* ============================================================
-   HAVEX — каталог продукции (PPF бронеплёнки)
+   HAVEX — сайт. Данные берутся из /data/catalog.js (window.HAVEX_DATA)
+   и правятся через админку /adminpanel/
    ============================================================ */
 
-const PRODUCTS = [
-  {
-    code: 'HX-PPF-GL5',
-    tag: 'Хит продаж',
-    tagAlt: false,
-    name: 'Gloss Guard 200',
-    accent: '#8CD117',
-    desc: 'Базовый глянцевый PPF для повседневной защиты. Полностью прозрачное покрытие, которое сохраняет заводской блеск и берёт на себя удары гравия на трассе.',
-    specs: [
-      ['Толщина', '200 мкм'],
-      ['Рулон', '1.52 × 15 м'],
-      ['Гарантия', '8 лет'],
-      ['Эффект', 'Глянец'],
-    ],
-    price: '24 900 ₽',
-    unit: 'за рулон 1.52 × 15 м',
-  },
-  {
-    code: 'HX-PPF-MT8',
-    tag: 'Новинка',
-    tagAlt: true,
-    name: 'Matte Satin 8',
-    accent: '#A8C94A',
-    desc: 'Матовый PPF для полной смены характера кузова. Превращает глянцевый лак в благородный сатиновый финиш и одновременно защищает его от сколов.',
-    specs: [
-      ['Толщина', '215 мкм'],
-      ['Рулон', '1.52 × 15 м'],
-      ['Гарантия', '8 лет'],
-      ['Эффект', 'Мат / сатин'],
-    ],
-    price: '31 400 ₽',
-    unit: 'за рулон 1.52 × 15 м',
-  },
-  {
-    code: 'HX-PPF-CR10',
-    tag: 'Premium',
-    tagAlt: false,
-    name: 'Ceramic Shield 10',
-    accent: '#7AB800',
-    desc: 'Топовый продукт с интегрированным керамическим слоем. Гидрофобная поверхность отталкивает грязь и воду, а гарантия достигает 10 лет.',
-    specs: [
-      ['Толщина', '230 мкм'],
-      ['Рулон', '1.52 × 15 м'],
-      ['Гарантия', '10 лет'],
-      ['Эффект', 'Глянец + керамика'],
-    ],
-    price: '42 800 ₽',
-    unit: 'за рулон 1.52 × 15 м',
-  },
-  {
-    code: 'HX-PPF-TN35',
-    tag: '',
-    tagAlt: false,
-    name: 'Tint Guard 35',
-    accent: '#6E9E14',
-    desc: 'Тонировочная защитная плёнка для стёкол и оптики. Снижает нагрев салона, блокирует UV и защищает фары от пескоструя, оставаясь прозрачной изнутри.',
-    specs: [
-      ['Толщина', '150 мкм'],
-      ['Рулон', '1.52 × 30 м'],
-      ['Гарантия', '7 лет'],
-      ['Светопропускание', '35%'],
-    ],
-    price: '18 600 ₽',
-    unit: 'за рулон 1.52 × 30 м',
-  },
-  {
-    code: 'HX-PPF-HL4',
-    tag: '',
-    tagAlt: false,
-    name: 'Headlight Armor',
-    accent: '#B4E03A',
-    desc: 'Комплект плёнки для фар и фонарей. Защищает дорогостоящую оптику от мелких камней и помутнения, выдерживает нагрев и мойку под давлением.',
-    specs: [
-      ['Толщина', '180 мкм'],
-      ['Комплект', '2 фары + 2 фонаря'],
-      ['Гарантия', '7 лет'],
-      ['Эффект', 'Прозрачный'],
-    ],
-    price: '6 400 ₽',
-    unit: 'за готовый комплект',
-  },
-];
+const DATA = window.HAVEX_DATA || { products: [], settings: {}, gallery: [], videos: [] };
+const SETTINGS = DATA.settings || {};
+const ALL_PRODUCTS = Array.isArray(DATA.products) ? DATA.products : [];
+const PRODUCTS = ALL_PRODUCTS.filter((p) => !p.hidden);
+
+/* ---------- helpers ---------- */
+function esc(value) {
+  return String(value == null ? '' : value)
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;');
+}
+
+function money(value) {
+  const n = Number(value);
+  if (!n || n <= 0) return 'Цена по запросу';
+  return new Intl.NumberFormat('ru-RU').format(n) + ' ₽';
+}
 
 /* ---------- render catalog ---------- */
 function rollMarkup(p) {
   return `
-    <div class="roll" style="--accent:${p.accent}">
+    <div class="roll" style="--accent:${esc(p.accent || '#8CD117')}">
       <div class="roll__box"></div>
       <div class="roll__label">
         <b>HAVE<i>X</i></b>
@@ -104,24 +43,28 @@ function rollMarkup(p) {
 
 function cardMarkup(p) {
   const tag = p.tag
-    ? `<div class="card__tag${p.tagAlt ? ' card__tag--alt' : ''}">${p.tag}</div>`
+    ? `<div class="card__tag${p.tagAlt ? ' card__tag--alt' : ''}">${esc(p.tag)}</div>`
     : '';
 
-  const specs = p.specs
-    .map(([k, v]) => `<div><dt>${k}</dt><dd>${v}</dd></div>`)
+  const specs = (p.specs || [])
+    .map((s) => `<div><dt>${esc(s[0])}</dt><dd>${esc(s[1])}</dd></div>`)
     .join('');
 
+  const media = p.image
+    ? `<img src="${esc(p.image)}" alt="${esc(p.name)}" loading="lazy" class="card__photo">`
+    : rollMarkup(p);
+
   return `
-    <article class="card reveal" data-product="${p.name}">
+    <article class="card reveal" data-product="${esc(p.name)}" data-code="${esc(p.code)}">
       ${tag}
-      <div class="card__media">${rollMarkup(p)}</div>
+      <div class="card__media">${media}</div>
       <div class="card__body">
-        <p class="card__code">${p.code}</p>
-        <h3 class="card__name">${p.name}</h3>
-        <p class="card__desc">${p.desc}</p>
+        <p class="card__code">${esc(p.code)}</p>
+        <h3 class="card__name">${esc(p.name)}</h3>
+        <p class="card__desc">${esc(p.desc)}</p>
         <dl class="card__specs">${specs}</dl>
         <div class="card__foot">
-          <div class="card__price">${p.price}<small>${p.unit}</small></div>
+          <div class="card__price">${esc(money(p.price))}<small>${esc(p.unit)}</small></div>
           <button type="button" class="card__btn" data-order>Заказать</button>
         </div>
       </div>
@@ -132,6 +75,71 @@ function renderCatalog() {
   const grid = document.getElementById('productGrid');
   if (!grid) return;
   grid.innerHTML = PRODUCTS.map(cardMarkup).join('');
+}
+
+/* ---------- settings applied to the page ---------- */
+function applySettings() {
+  const s = SETTINGS;
+
+  const setText = (sel, value) => {
+    document.querySelectorAll(sel).forEach((el) => { if (value) el.textContent = value; });
+  };
+  const setLink = (sel, href) => {
+    if (!href) return;
+    document.querySelectorAll(sel).forEach((el) => { el.href = href; });
+  };
+
+  const words = document.querySelectorAll('.hero__word');
+  if (words[0] && s.heroTitle1) words[0].textContent = s.heroTitle1;
+  if (words[1] && s.heroTitle2) words[1].textContent = s.heroTitle2;
+  if (words[2] && s.heroTitle3) words[2].textContent = s.heroTitle3;
+
+  const lead = document.querySelector('.hero__lead');
+  if (lead && s.heroLead) lead.textContent = s.heroLead;
+
+  setText('[data-site-phone]', s.phone);
+  setText('[data-site-hours]', s.hours);
+
+  document.querySelectorAll('[data-site-phone]').forEach((el) => {
+    if (el.tagName === 'A' && s.phone) el.href = 'tel:' + String(s.phone).replace(/[^\d+]/g, '');
+  });
+  document.querySelectorAll('[data-site-email]').forEach((el) => {
+    if (el.tagName === 'A' && s.email) el.href = 'mailto:' + s.email;
+  });
+
+  setLink('[data-social="instagram"]', s.instagram);
+  setLink('[data-social="telegram"]', s.telegram);
+  setLink('[data-social="youtube"]', s.youtube);
+
+  /* hero eyebrow + contacts block are optional extras */
+  const yearEl = document.getElementById('year');
+  if (yearEl) yearEl.textContent = String(new Date().getFullYear());
+}
+
+/* ---------- gallery ---------- */
+function renderGallery() {
+  const section = document.getElementById('gallery');
+  if (!section) return;
+
+  const items = Array.isArray(DATA.gallery) ? DATA.gallery : [];
+  if (!SETTINGS.galleryShow || !items.length) {
+    section.remove();
+    return;
+  }
+
+  const titleEl = section.querySelector('[data-gallery-title]');
+  const leadEl = section.querySelector('[data-gallery-lead]');
+  if (titleEl && SETTINGS.galleryTitle) titleEl.textContent = SETTINGS.galleryTitle;
+  if (leadEl && SETTINGS.galleryLead) leadEl.textContent = SETTINGS.galleryLead;
+
+  const grid = section.querySelector('[data-gallery-grid]');
+  if (!grid) return;
+
+  grid.innerHTML = items.map((it) => `
+    <figure class="shot reveal">
+      <img src="${esc(it.image)}" alt="${esc(it.caption || 'Работа HAVEX')}" loading="lazy">
+      ${it.caption ? `<figcaption>${esc(it.caption)}</figcaption>` : ''}
+    </figure>`).join('');
 }
 
 function fillProductOptions() {
@@ -227,22 +235,20 @@ function initOrderButtons() {
     if (!btn) return;
 
     const card = btn.closest('.card');
+    const code = card ? card.dataset.code : '';
     const name = card ? card.dataset.product : '';
     const select = document.getElementById('f-product');
 
-    if (select && name) {
-      const match = [...select.options].find((o) => o.value.startsWith(name));
+    if (select && (code || name)) {
+      const match = [...select.options].find((o) =>
+        (code && o.value.includes(code)) || (name && o.value.startsWith(name))
+      );
       if (match) select.value = match.value;
     }
 
     document.getElementById('contact')?.scrollIntoView({ behavior: 'smooth' });
     setTimeout(() => document.getElementById('f-name')?.focus({ preventScroll: true }), 620);
   });
-}
-
-function initYear() {
-  const el = document.getElementById('year');
-  if (el) el.textContent = String(new Date().getFullYear());
 }
 
 /* ============================================================
@@ -334,12 +340,12 @@ function initForm() {
 /* ---------- boot ---------- */
 document.addEventListener('DOMContentLoaded', () => {
   renderCatalog();
+  renderGallery();
   fillProductOptions();
+  applySettings();
   initHeader();
-  initReveal();
   initCursorGlow();
   initOrderButtons();
   initForm();
-  initYear();
-  initReveal(); // pick up dynamically injected cards
+  initReveal(); // must run after dynamic content is injected
 });
