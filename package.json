@@ -1,0 +1,19 @@
+{
+  "name": "havex-site",
+  "version": "1.0.0",
+  "private": true,
+  "description": "HAVEX — премиальный сайт PPF бронеплёнок с приёмом заявок в Telegram",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js",
+    "dev": "node --watch server.js"
+  },
+  "engines": {
+    "node": ">=18"
+  },
+  "dependencies": {
+    "dotenv": "^16.4.5",
+    "express": "^4.21.2",
+    "express-rate-limit": "^7.5.0"
+  }
+}
