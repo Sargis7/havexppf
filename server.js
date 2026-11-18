@@ -3,6 +3,7 @@
 require('dotenv').config();
 
 const path = require('path');
+const crypto = require('crypto');
 const express = require('express');
 const rateLimit = require('express-rate-limit');
 
@@ -11,6 +12,26 @@ const PORT = process.env.PORT || 3000;
 
 const BOT_TOKEN = process.env.TELEGRAM_BOT_TOKEN || '';
 const CHAT_ID = process.env.TELEGRAM_CHAT_ID || '';
+
+// Пароль панели хранится ТОЛЬКО здесь, в переменных окружения.
+// В браузер он не попадает ни в каком виде — ни открытым, ни хешем.
+const ADMIN_PASSWORD = process.env.ADMIN_PASSWORD || '';
+const ADMIN_SESSION_SECRET = process.env.ADMIN_SESSION_SECRET || '';
+const ADMIN_SESSION_HOURS = Number(process.env.ADMIN_SESSION_HOURS || 12);
+const ADMIN_COOKIE = 'havex_admin';
+
+// Админка не работает без явно заданного пароля — лучше упасть громко,
+// чем запустить панель с дефолтным доступом.
+if (!ADMIN_PASSWORD) {
+  console.warn('  [admin] ADMIN_PASSWORD не задан — вход в панель заблокирован');
+}
+if (!ADMIN_SESSION_SECRET) {
+  console.warn('  [admin] ADMIN_SESSION_SECRET не задан — токены будут сбрасываться при рестарте');
+}
+
+// Секрет, которым подписывается cookie. Если не задан — генерируем случайный
+// на время жизни процесса (сессии просто не переживут перезапуск).
+const SESSION_SECRET = ADMIN_SESSION_SECRET || crypto.randomBytes(32).toString('hex');
 
 app.disable('x-powered-by');
 app.set('trust proxy', 1);
@@ -181,20 +202,155 @@ const PUBLIC_DIR = path.join(__dirname, 'public');
 
 const ADMIN_DIR = path.join(__dirname, '_admin');
 
+/* ------------------------------------------------------------------ */
+/*  Авторизация панели: пароль проверяется на сервере                 */
+/* ------------------------------------------------------------------ */
+
+// Сравнение без утечки по времени
+function safeEqual(a, b) {
+  const ba = Buffer.from(String(a));
+  const bb = Buffer.from(String(b));
+  if (ba.length !== bb.length) return false;
+  return crypto.timingSafeEqual(ba, bb);
+}
+
+// Токен сессии = "срок.подпись", подпись считается от срока секретом сервера.
+// Так не нужна ни база, ни память: подделать токен без секрета нельзя.
+function signSession(exp) {
+  return crypto.createHmac('sha256', SESSION_SECRET).update(String(exp)).digest('hex');
+}
+
+function makeSessionToken() {
+  const exp = Date.now() + ADMIN_SESSION_HOURS * 3600 * 1000;
+  return exp + '.' + signSession(exp);
+}
+
+function isValidSessionToken(token) {
+  if (!token || token.indexOf('.') === -1) return false;
+  const parts = token.split('.');
+  const exp = Number(parts[0]);
+  const sig = parts[1];
+  if (!Number.isFinite(exp) || exp < Date.now()) return false;
+  return safeEqual(sig, signSession(exp));
+}
+
+function readCookie(req, name) {
+  const raw = req.headers.cookie || '';
+  const pairs = raw.split(';');
+  for (let i = 0; i < pairs.length; i++) {
+    const idx = pairs[i].indexOf('=');
+    if (idx === -1) continue;
+    if (pairs[i].slice(0, idx).trim() === name) {
+      return decodeURIComponent(pairs[i].slice(idx + 1).trim());
+    }
+  }
+  return '';
+}
+
+function hasAdminSession(req) {
+  return isValidSessionToken(readCookie(req, ADMIN_COOKIE));
+}
+
+function setAdminCookie(res, token) {
+  const maxAge = ADMIN_SESSION_HOURS * 3600;
+  // X-Forwarded-Proto учитываем через trust proxy: на Railway сайт за HTTPS
+  const secure = isHttps(res.req) ? '; Secure' : '';
+  res.setHeader(
+    'Set-Cookie',
+    ADMIN_COOKIE + '=' + encodeURIComponent(token) +
+      '; HttpOnly; SameSite=Strict; Path=/; Max-Age=' + maxAge + secure
+  );
+}
+
+function clearAdminCookie(res) {
+  const secure = isHttps(res.req) ? '; Secure' : '';
+  res.setHeader(
+    'Set-Cookie',
+    ADMIN_COOKIE + '=; HttpOnly; SameSite=Strict; Path=/; Max-Age=0' + secure
+  );
+}
+
+function isHttps(req) {
+  if (!req) return false;
+  if (req.secure) return true;
+  const proto = req.headers['x-forwarded-proto'] || '';
+  return String(proto).split(',')[0].trim() === 'https';
+}
+
+// Тормоз для перебора: 8 попыток за 15 минут на IP
+const adminLoginLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  max: 8,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { ok: false, error: 'Слишком много попыток. Попробуйте через 15 минут.' },
+});
+
+// Текущее состояние: авторизован ли браузер
+app.get('/api/admin/session', (req, res) => {
+  res.setHeader('Cache-Control', 'no-store');
+  res.json({ ok: true, auth: hasAdminSession(req), configured: Boolean(ADMIN_PASSWORD) });
+});
+
+// Вход
+app.post('/api/admin/login', adminLoginLimiter, (req, res) => {
+  res.setHeader('Cache-Control', 'no-store');
+
+  if (!ADMIN_PASSWORD) {
+    return res.status(503).json({ ok: false, error: 'Пароль панели не настроен на сервере.' });
+  }
+
+  const pass = String((req.body && req.body.password) || '');
+  if (!pass) return res.status(400).json({ ok: false, error: 'Введите пароль' });
+
+  if (!safeEqual(pass, ADMIN_PASSWORD)) {
+    // Небольшая задержка, чтобы перебор не был мгновенным даже при лимите
+    return setTimeout(
+      () => res.status(401).json({ ok: false, error: 'Неверный пароль' }),
+      250
+    );
+  }
+
+  setAdminCookie(res, makeSessionToken());
+  res.json({ ok: true });
+});
+
+// Выход
+app.post('/api/admin/logout', (req, res) => {
+  clearAdminCookie(res);
+  res.json({ ok: true });
+});
+
+// Файлы панели отдаём только авторизованным — хеша пароля в исходниках больше нет.
+// Без сессии отдаём автономную страницу входа (login-required.html): у неё
+// стили и скрипт внутри, поэтому она работает, даже когда admin.js закрыт.
+function requireAdminSession(req, res, next) {
+  if (hasAdminSession(req)) return next();
+  res.setHeader('X-Robots-Tag', 'noindex, nofollow, noarchive');
+  res.setHeader('Cache-Control', 'no-store');
+  res.status(401).sendFile(path.join(ADMIN_DIR, 'login-required.html'));
+}
+
 app.use('/adminpanel', (_req, res, next) => {
   res.setHeader('X-Robots-Tag', 'noindex, nofollow, noarchive');
+  res.setHeader('Cache-Control', 'no-store');
   next();
 });
 
 app.get('/adminpanel', (_req, res) => res.redirect(301, '/adminpanel/'));
-app.get('/adminpanel/', (_req, res) => res.sendFile(path.join(ADMIN_DIR, 'index.html')));
+app.get('/adminpanel/', requireAdminSession, (_req, res) =>
+  res.sendFile(path.join(ADMIN_DIR, 'index.html'))
+);
 
 // Файлы панели: только имя без слэшей, чтобы исключить traversal
 app.get('/adminpanel/:file', (req, res, next) => {
   const file = req.params.file;
   if (!file || !/^[a-zA-Z0-9._-]+$/.test(file)) return next();
-  res.sendFile(path.join(ADMIN_DIR, file), (err) => {
-    if (err) next();
+  if (file === 'login-required.html') return next();
+  requireAdminSession(req, res, () => {
+    res.sendFile(path.join(ADMIN_DIR, file), (err) => {
+      if (err) next();
+    });
   });
 });
 

@@ -7,12 +7,9 @@
 
     /* ---------- КОНСТАНТЫ ---------- */
 
-    // SHA-256 от пароля 'havex2026' — замените на свой (см. README)
-    const PASS_HASH = 'ed97e31fde4ac2a0f235b3cae1b8ff4efbc21f566011563a994967edded676dd';
-
-    const LS_TRUST     = 'havex_admin_trust_v1';
+    // Пароль здесь НЕ хранится. Проверка на сервере: POST /api/admin/login,
+    // состояние сессии — httpOnly-cookie. В этом файле секретов нет.
     const LS_SETTINGS  = 'havex_admin_settings_v1';
-    const TRUST_DAYS   = 30;
 
     const DEFAULT_SETTINGS = {
         owner : 'Sargis7',
@@ -71,13 +68,6 @@
         return d.getFullYear() + '-' + pad(d.getMonth() + 1) + '-' + pad(d.getDate());
     }
 
-    async function sha256(text) {
-        const buf = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(text));
-        return Array.from(new Uint8Array(buf))
-            .map((b) => b.toString(16).padStart(2, '0'))
-            .join('');
-    }
-
     /* ---------- TOASTS / BUSY ---------- */
 
     function toast(msg, kind) {
@@ -121,21 +111,41 @@
         localStorage.setItem(LS_SETTINGS, JSON.stringify(s));
     }
 
-    function isTrusted() {
+    /* ---------- СЕССИЯ (на сервере) ---------- */
+
+    async function serverSession() {
         try {
-            const until = Number(localStorage.getItem(LS_TRUST) || 0);
-            return until > Date.now();
+            const res = await fetch('/api/admin/session', {
+                credentials: 'same-origin',
+                cache: 'no-store'
+            });
+            if (!res.ok) return { auth: false, configured: true };
+            const data = await res.json();
+            return { auth: !!data.auth, configured: !!data.configured };
         } catch (e) {
-            return false;
+            return { auth: false, configured: true, offline: true };
         }
     }
 
-    function grantTrust(days) {
-        localStorage.setItem(LS_TRUST, String(Date.now() + days * 86400000));
+    async function serverLogin(password) {
+        const res = await fetch('/api/admin/login', {
+            method: 'POST',
+            credentials: 'same-origin',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ password: password })
+        });
+        let data = {};
+        try { data = await res.json(); } catch (e) {}
+        return { ok: res.ok, error: data.error || '' };
     }
 
-    function revokeTrust() {
-        localStorage.removeItem(LS_TRUST);
+    async function serverLogout() {
+        try {
+            await fetch('/api/admin/logout', {
+                method: 'POST',
+                credentials: 'same-origin'
+            });
+        } catch (e) {}
     }
 
     function showScreen(id) {
@@ -883,6 +893,7 @@
         e.preventDefault();
         const pass = $('#gate-pass').value;
         const err = $('#gate-error');
+        const btn = $('#gate-btn');
 
         if (!pass) {
             err.textContent = 'Введите пароль';
@@ -890,17 +901,24 @@
             return;
         }
 
-        const hash = await sha256(pass);
-        if (hash !== PASS_HASH) {
-            err.textContent = 'Неверный пароль';
+        err.classList.add('hidden');
+        btn.disabled = true;
+        btn.classList.add('loading');
+
+        const r = await serverLogin(pass);
+
+        btn.disabled = false;
+        btn.classList.remove('loading');
+
+        if (!r.ok) {
+            err.textContent = r.error || 'Неверный пароль';
             err.classList.remove('hidden');
             $('#gate-pass').value = '';
             $('#gate-pass').focus();
             return;
         }
 
-        err.classList.add('hidden');
-        if ($('#gate-remember').checked) grantTrust(TRUST_DAYS);
+        $('#gate-pass').value = '';
 
         const cfg = loadSettings();
         if (!cfg.token) {
@@ -969,11 +987,13 @@
 
     /* ---------- ВЫХОД ---------- */
 
-    function onLogout() {
+    async function onLogout() {
         if (!confirm('Выйти из панели? Пароль потребуется ввести снова.')) return;
-        revokeTrust();
+        await serverLogout();
         $('#gate-pass').value = '';
+        $('#gate-error').classList.add('hidden');
         showScreen('#screen-gate');
+        $('#gate-pass').focus();
     }
 
     /* ---------- ИНИЦИАЛИЗАЦИЯ ---------- */
@@ -1068,15 +1088,42 @@
         });
     }
 
-    function boot() {
+    async function boot() {
         bindEvents();
-        if (isTrusted()) {
+
+        // Панель отдаётся сервером только при валидной сессии.
+        // Если сессия жива — сервер уже пустил нас, проверяем ещё раз на всякий случай.
+        const s = await serverSession();
+
+        if (s.offline) {
+            const err = $('#gate-error');
+            err.textContent = 'Нет связи с сервером. Панель работает только на боевом сайте.';
+            err.classList.remove('hidden');
+            showScreen('#screen-gate');
+            return;
+        }
+
+        if (s.configured === false) {
+            const err = $('#gate-error');
+            err.textContent = 'Пароль панели не задан на сервере (ADMIN_PASSWORD).';
+            err.classList.remove('hidden');
+            showScreen('#screen-gate');
+            return;
+        }
+
+        if (s.auth) {
             const cfg = loadSettings();
             if (cfg.token) {
                 enterPanel();
                 return;
             }
+            showScreen('#screen-setup');
+            $('#set-owner').value  = cfg.owner;
+            $('#set-repo').value   = cfg.repo;
+            $('#set-branch').value = cfg.branch;
+            return;
         }
+
         showScreen('#screen-gate');
         $('#gate-pass').focus();
     }

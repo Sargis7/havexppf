@@ -1,0 +1,203 @@
+<!DOCTYPE html>
+<html lang="ru" data-theme="dark">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="robots" content="noindex, nofollow, noarchive">
+<title>Вход в панель — HAVEX</title>
+<link rel="icon" href="/favicon.svg" type="image/svg+xml">
+<style>
+    :root {
+        --bg: #0A0A0A;
+        --card: #141414;
+        --line: rgba(255, 255, 255, .10);
+        --txt: #F5F5F5;
+        --muted: #8C8C8C;
+        --lime: #8CD117;
+        --red: #F87171;
+    }
+    * { box-sizing: border-box; }
+    html, body { height: 100%; margin: 0; }
+    body {
+        background: radial-gradient(1000px 520px at 50% -10%, rgba(140, 209, 23, .10), transparent 60%), var(--bg);
+        color: var(--txt);
+        font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Inter, Roboto, Arial, sans-serif;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        padding: 24px;
+        -webkit-font-smoothing: antialiased;
+    }
+    .box {
+        width: 100%;
+        max-width: 380px;
+        background: var(--card);
+        border: 1px solid var(--line);
+        border-radius: 18px;
+        padding: 32px 28px;
+        box-shadow: 0 30px 80px rgba(0, 0, 0, .55);
+    }
+    .logo {
+        font-size: 22px;
+        font-weight: 800;
+        letter-spacing: .22em;
+        text-align: center;
+        margin: 0 0 4px;
+    }
+    .logo span { color: var(--lime); }
+    .sub {
+        font-size: 10px;
+        letter-spacing: .3em;
+        text-transform: uppercase;
+        color: var(--muted);
+        text-align: center;
+        margin: 0 0 28px;
+    }
+    label.lbl {
+        display: block;
+        font-size: 10px;
+        letter-spacing: .18em;
+        text-transform: uppercase;
+        color: #8C8C8C;
+        margin-bottom: 8px;
+    }
+    input[type="password"] {
+        width: 100%;
+        background: #0E0E0E;
+        border: 1px solid var(--line);
+        border-radius: 10px;
+        color: var(--txt);
+        font-size: 15px;
+        padding: 13px 14px;
+        outline: none;
+        transition: border-color .15s, box-shadow .15s;
+        margin-bottom: 14px;
+    }
+    input[type="password"]:focus {
+        border-color: rgba(140, 209, 23, .55);
+        box-shadow: 0 0 0 3px rgba(140, 209, 23, .12);
+    }
+    .remember {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        font-size: 13px;
+        color: #8C8C8C;
+        margin-bottom: 16px;
+        user-select: none;
+        cursor: default;
+    }
+    .remember input { accent-color: var(--lime); width: 15px; height: 15px; margin: 0; opacity: .75; }
+    .err {
+        display: none;
+        font-size: 13px;
+        color: var(--red);
+        margin-bottom: 14px;
+        line-height: 1.45;
+    }
+    .err.on { display: block; }
+    button {
+        width: 100%;
+        border: 0;
+        border-radius: 10px;
+        background: var(--lime);
+        color: #0A0A0A;
+        font-size: 14px;
+        font-weight: 700;
+        padding: 13px 20px;
+        cursor: pointer;
+        transition: filter .15s, transform .15s;
+        font-family: inherit;
+    }
+    button:hover:not(:disabled) { filter: brightness(1.08); transform: translateY(-1px); }
+    button:active:not(:disabled) { transform: translateY(0); }
+    button:disabled { opacity: .6; cursor: default; }
+    .back {
+        display: block;
+        text-align: center;
+        margin-top: 18px;
+        font-size: 12px;
+        color: #5E5E5E;
+        text-decoration: none;
+    }
+    .back:hover { color: var(--muted); }
+</style>
+</head>
+<body>
+    <form class="box" id="f" autocomplete="on">
+        <div class="logo">HAVEX<span>.</span></div>
+        <p class="sub">Admin panel</p>
+
+        <label class="lbl" for="pass">Пароль</label>
+        <input id="pass" type="password" placeholder="••••••••" autocomplete="current-password" autofocus required>
+
+        <label class="remember">
+            <input type="checkbox" checked disabled>
+            Запомнить на 12 часов
+        </label>
+
+        <div class="err" id="err"></div>
+
+        <button type="submit" id="btn">Войти</button>
+        <a class="back" href="/">← на сайт</a>
+    </form>
+
+<script>
+(function () {
+    'use strict';
+    var f   = document.getElementById('f');
+    var inp = document.getElementById('pass');
+    var err = document.getElementById('err');
+    var btn = document.getElementById('btn');
+
+    function fail(msg) {
+        err.textContent = msg;
+        err.classList.add('on');
+        inp.value = '';
+        inp.focus();
+    }
+
+    f.addEventListener('submit', function (e) {
+        e.preventDefault();
+        var pass = inp.value;
+        if (!pass) { fail('Введите пароль'); return; }
+
+        err.classList.remove('on');
+        btn.disabled = true;
+        btn.textContent = 'Проверяем…';
+        inp.disabled = true;
+
+        fetch('/api/admin/login', {
+            method: 'POST',
+            credentials: 'same-origin',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ password: pass })
+        })
+        .then(function (res) {
+            return res.json().catch(function () { return {}; })
+                .then(function (data) { return { ok: res.ok, status: res.status, data: data }; });
+        })
+        .then(function (r) {
+            if (r.ok) {
+                btn.textContent = 'Готово, открываем…';
+                location.replace('/adminpanel/');
+                return;
+            }
+            btn.disabled = false;
+            btn.textContent = 'Войти';
+            inp.disabled = false;
+            fail(r.data.error || (r.status === 429
+                ? 'Слишком много попыток. Попробуйте позже.'
+                : 'Неверный пароль'));
+        })
+        .catch(function () {
+            btn.disabled = false;
+            btn.textContent = 'Войти';
+            inp.disabled = false;
+            fail('Нет связи с сервером');
+        });
+    });
+})();
+</script>
+</body>
+</html>
